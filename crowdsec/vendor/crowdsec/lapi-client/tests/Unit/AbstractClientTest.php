@@ -27,9 +27,12 @@ use CrowdSec\LapiClient\Tests\PHPUnitUtil;
  * @uses \CrowdSec\LapiClient\Bouncer::formatUserAgent
  * @uses \CrowdSec\LapiClient\Configuration::addConnectionNodes
  * @uses \CrowdSec\LapiClient\Configuration::validate
+ * @uses \CrowdSec\LapiClient\Configuration::addAppSecNodes
  *
  * @covers \CrowdSec\LapiClient\Bouncer::__construct
  * @covers \CrowdSec\LapiClient\Bouncer::configure
+ * @covers \CrowdSec\LapiClient\Bouncer::cleanHeadersForLog
+ * @covers \CrowdSec\LapiClient\Bouncer::cleanRawBodyForLog
  */
 final class AbstractClientTest extends AbstractClient
 {
@@ -86,8 +89,54 @@ final class AbstractClientTest extends AbstractClient
 
     public function testPrivateOrProtectedMethods()
     {
+        // cleanHeadersForLog
         $client = new Bouncer($this->configs);
+        $headers = ['test' => 'test'];
+        $cleanedHeaders = PHPUnitUtil::callMethod(
+            $client,
+            'cleanHeadersForLog',
+            [$headers]
+        );
+        $this->assertEquals(
+            $headers,
+            $cleanedHeaders,
+            'Headers should be untouched as they are not sensitive'
+        );
 
+        $headers = ['test' => 'test', 'X-Crowdsec-Appsec-Api-Key' => '28'];
+        $cleanedHeaders = PHPUnitUtil::callMethod(
+            $client,
+            'cleanHeadersForLog',
+            [$headers]
+        );
+        $this->assertEquals(
+            ['test' => 'test', 'X-Crowdsec-Appsec-Api-Key' => '***'],
+            $cleanedHeaders,
+            'Headers should be cleaned as they are not sensitive'
+        );
+        // cleanRawBodyForLog
+        $rawBody = 'test';
+        $cleanedRawBody = PHPUnitUtil::callMethod(
+            $client,
+            'cleanRawBodyForLog',
+            [$rawBody, 10]
+        );
+        $this->assertEquals(
+            $rawBody,
+            $cleanedRawBody,
+            'Raw body should be untouched if not too long'
+        );
+        $rawBody = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        $cleanedRawBody = PHPUnitUtil::callMethod(
+            $client,
+            'cleanRawBodyForLog',
+            [$rawBody, 10]
+        );
+        $this->assertEquals(
+            'aaaaaaaaaa...[TRUNCATED]',
+            $cleanedRawBody,
+            'Raw body should be cut if too long'
+        );
         $fullUrl = PHPUnitUtil::callMethod(
             $client,
             'getFullUrl',

@@ -123,6 +123,8 @@ use org\bovigo\vfs\vfsStreamDirectory;
  * @covers \CrowdSec\RemediationEngine\CapiRemediation::validateBlocklist
  * @covers \CrowdSec\RemediationEngine\CapiRemediation::shouldAddModifiedSince
  * @covers \CrowdSec\RemediationEngine\CapiRemediation::handleListResponse
+ * @covers \CrowdSec\RemediationEngine\AbstractRemediation::processCachedDecisions
+ * @covers \CrowdSec\RemediationEngine\AbstractRemediation::retrieveRemediationFromCachedDecisions
  */
 final class CapiRemediationTest extends AbstractRemediation
 {
@@ -421,11 +423,11 @@ final class CapiRemediationTest extends AbstractRemediation
             [
                 'scope' => 'ip',
                 'decisions' => [
-                        [
-                            'value' => '1.2.3.4',
-                            'duration' => '147h',
-                        ],
+                    [
+                        'value' => '1.2.3.4',
+                        'duration' => '147h',
                     ],
+                ],
             ],
         ];
         $result = PHPUnitUtil::callMethod(
@@ -462,8 +464,8 @@ final class CapiRemediationTest extends AbstractRemediation
             [
                 'scope' => 'range',
                 'decisions' => [
-                        '1.2.3.4/24', '5.6.7.8/24',
-                    ],
+                    '1.2.3.4/24', '5.6.7.8/24',
+                ],
             ],
         ];
         $result = PHPUnitUtil::callMethod(
@@ -1347,12 +1349,12 @@ final class CapiRemediationTest extends AbstractRemediation
             $cachedValue[1][0]
         );
         $lastPullItem = $remediation->getCacheStorage()->getItem($lastPullCacheKey);
-
-        $this->assertEquals(
-            [AbstractCache::INDEX_EXP => $listExpiration, AbstractCache::LAST_PULL => $time],
-            $lastPullItem->get(),
-            'Expiration and pull date should not have change'
-        );
+        $lastPullItemContent = $lastPullItem->get();
+        // Expiration and pull date should not have change
+        // Avoid false positive with tme manipulation (strict equality sometimes leads to error of 1 second)
+        $this->assertTrue($lastPullItemContent[AbstractCache::INDEX_EXP] <= $listExpiration && $listExpiration - 1 <= $lastPullItemContent[1]);
+        $this->assertTrue($lastPullItemContent[AbstractCache::LAST_PULL] <= $time && $time - 1 <=
+                                                                        $lastPullItemContent['last_pull']);
         // Test 13 : new + list again
         // We wait to test that expiration and pull date won't change
         $result = $remediation->refreshDecisions();

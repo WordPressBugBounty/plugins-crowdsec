@@ -42,6 +42,8 @@ use Symfony\Component\Config\Definition\Processor;
  * @covers \CrowdSec\RemediationEngine\Configuration\Lapi::getConfigTreeBuilder
  * @covers \CrowdSec\RemediationEngine\Configuration\Capi::addCapiNodes
  * @covers \CrowdSec\RemediationEngine\Configuration\AbstractCache::addCommonNodes
+ * @covers \CrowdSec\RemediationEngine\Configuration\Lapi::addAppSecNodes
+ * @covers \CrowdSec\RemediationEngine\Configuration\Lapi::validateAppSec
  */
 final class ConfigurationTest extends TestCase
 {
@@ -225,11 +227,14 @@ final class ConfigurationTest extends TestCase
                         'database_type' => Constants::MAXMIND_COUNTRY,
                     ],
                 ],
+                'appsec_fallback_remediation' => 'captcha',
+                'appsec_max_body_size_kb' => 1024,
+                'appsec_body_size_exceeded_action' => 'headers_only',
             ],
             $result,
             'Should set default config'
         );
-        // Test streammode flase
+        // Test stream mode false
         $configs = ['stream_mode' => false];
         $result = $processor->processConfiguration($configuration, [$configuration->cleanConfigs($configs)]);
         $this->assertEquals(
@@ -249,13 +254,16 @@ final class ConfigurationTest extends TestCase
                         'database_type' => Constants::MAXMIND_COUNTRY,
                     ],
                 ],
+                'appsec_fallback_remediation' => 'captcha',
+                'appsec_max_body_size_kb' => 1024,
+                'appsec_body_size_exceeded_action' => 'headers_only',
             ],
             $result,
             'Should set stream mode false'
         );
 
         // Test bypass is always with the lowest priority (i.e. always last element)
-        $configs = ['ordered_remediations' => ['rem1', 'rem2']];
+        $configs = ['ordered_remediations' => ['rem1', 'rem2'], 'appsec_fallback_remediation' => 'rem1'];
         $result = $processor->processConfiguration($configuration, [$configuration->cleanConfigs($configs)]);
         $this->assertEquals(
             [
@@ -272,11 +280,14 @@ final class ConfigurationTest extends TestCase
                         'database_type' => Constants::MAXMIND_COUNTRY,
                     ],
                 ],
+                'appsec_fallback_remediation' => 'rem1',
+                'appsec_max_body_size_kb' => 1024,
+                'appsec_body_size_exceeded_action' => 'headers_only',
             ],
             $result,
             'Should add bypass with the lowest priority'
         );
-        $configs = ['ordered_remediations' => ['rem1', 'bypass', 'rem2', 'rem3', 'bypass', 'rem4']];
+        $configs = ['ordered_remediations' => ['rem1', 'bypass', 'rem2', 'rem3', 'bypass', 'rem4'], 'appsec_fallback_remediation' => 'rem4'];
         $result = $processor->processConfiguration($configuration, [$configs]);
         $this->assertEquals(
             [
@@ -293,6 +304,9 @@ final class ConfigurationTest extends TestCase
                         'database_type' => Constants::MAXMIND_COUNTRY,
                     ],
                 ],
+                'appsec_fallback_remediation' => 'rem4',
+                'appsec_max_body_size_kb' => 1024,
+                'appsec_body_size_exceeded_action' => 'headers_only',
             ],
             $result,
             'Should add bypass with the lowest priority'
@@ -315,6 +329,9 @@ final class ConfigurationTest extends TestCase
                         'database_type' => Constants::MAXMIND_COUNTRY,
                     ],
                 ],
+                'appsec_fallback_remediation' => 'captcha',
+                'appsec_max_body_size_kb' => 1024,
+                'appsec_body_size_exceeded_action' => 'headers_only',
             ],
             $result,
             'Should normalize config'
@@ -348,6 +365,49 @@ final class ConfigurationTest extends TestCase
             '',
             $error,
             'Should normalize config'
+        );
+        // Test : can pass custom settings
+        $configs = [
+            'stream_mode' => false,
+            'clean_ip_cache_duration' => 86400,
+            'bad_ip_cache_duration' => 86400,
+            'fallback_remediation' => 'foo',
+            'ordered_remediations' => ['foo', 'bar'],
+            'geolocation' => [
+                'cache_duration' => 86400,
+                'enabled' => true,
+                'type' => Constants::GEOLOCATION_TYPE_MAXMIND,
+                'maxmind' => [
+                    'database_type' => Constants::MAXMIND_CITY,
+                ],
+            ],
+            'appsec_fallback_remediation' => 'bar',
+            'appsec_max_body_size_kb' => 2048,
+            'appsec_body_size_exceeded_action' => 'block',
+        ];
+
+        $result = $processor->processConfiguration($configuration, [$configuration->cleanConfigs($configs)]);
+        $this->assertEquals(
+            [
+                'stream_mode' => false,
+                'clean_ip_cache_duration' => 86400,
+                'bad_ip_cache_duration' => 86400,
+                'fallback_remediation' => 'foo',
+                'ordered_remediations' => ['foo', 'bar', 'bypass'],
+                'geolocation' => [
+                    'cache_duration' => 86400,
+                    'enabled' => true,
+                    'type' => Constants::GEOLOCATION_TYPE_MAXMIND,
+                    'maxmind' => [
+                        'database_type' => Constants::MAXMIND_CITY,
+                    ],
+                ],
+                'appsec_fallback_remediation' => 'bar',
+                'appsec_max_body_size_kb' => 2048,
+                'appsec_body_size_exceeded_action' => 'block',
+            ],
+            $result,
+            'Should set custom config'
         );
     }
 
@@ -498,7 +558,7 @@ final class ConfigurationTest extends TestCase
         $configs = [
             'redis_dsn' => 'redis_dsn_test',
             'some_useless_conf' => 'what-ever',
-            ];
+        ];
         $result = $processor->processConfiguration($configuration, [$configuration->cleanConfigs($configs)]);
         $this->assertEquals(
             [

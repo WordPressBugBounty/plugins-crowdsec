@@ -6,6 +6,7 @@ namespace CrowdSec\RemediationEngine;
 
 use CrowdSec\LapiClient\Bouncer;
 use CrowdSec\LapiClient\ClientException;
+use CrowdSec\LapiClient\TimeoutException;
 use CrowdSec\RemediationEngine\CacheStorage\AbstractCache;
 use CrowdSec\RemediationEngine\CacheStorage\CacheStorageException;
 use CrowdSec\RemediationEngine\Configuration\Lapi as LapiRemediationConfig;
@@ -33,7 +34,7 @@ class LapiRemediation extends AbstractRemediation
         array $configs,
         Bouncer $client,
         AbstractCache $cacheStorage,
-        LoggerInterface $logger = null
+        ?LoggerInterface $logger = null
     ) {
         $this->configure($configs);
         $this->client = $client;
@@ -95,12 +96,113 @@ class LapiRemediation extends AbstractRemediation
             $cachedDecisions = !empty($stored[AbstractCache::STORED]) ? $stored[AbstractCache::STORED] : [];
         }
 
-        $remediationData = $this->handleRemediationFromDecisions($cachedDecisions);
-        if (!empty($remediationData[self::INDEX_ORIGIN])) {
-            $this->updateRemediationOriginCount((string) $remediationData[self::INDEX_ORIGIN]);
+        return $this->processCachedDecisions($cachedDecisions);
+    }
+
+    private function validateAppSecHeaders(array $headers): bool
+    {
+        if (
+            empty($headers[Constants::HEADER_APPSEC_IP])
+            || empty($headers[Constants::HEADER_APPSEC_URI])
+            || empty($headers[Constants::HEADER_APPSEC_VERB])
+        ) {
+            $this->logger->error('Missing or empty required AppSec header', [
+                'type' => 'LAPI_REM_APPSEC_MISSING_HEADER',
+                'headers' => $headers,
+            ]);
+
+            return false;
         }
 
-        return $remediationData[self::INDEX_REM];
+        return true;
+    }
+
+    private function parseAppSecDecision(array $rawAppSecDecision): string
+    {
+        if (!isset($rawAppSecDecision['action'])) {
+            return Constants::REMEDIATION_BYPASS;
+        }
+
+        return Constants::APPSEC_ACTION_ALLOW === $rawAppSecDecision['action'] ?
+            Constants::REMEDIATION_BYPASS :
+            $rawAppSecDecision['action'];
+    }
+
+    private function validateRawBody(string $rawBody): bool
+    {
+        // rawBody length is in bytes, so we convert the max size in bytes
+        $maxBodySize = $this->getConfig('appsec_max_body_size_kb') * 1024;
+        $rawBodySize = strlen($rawBody);
+
+        if ($rawBodySize > $maxBodySize) {
+            $this->logger->warning('Request body size exceeded', [
+                'type' => 'LAPI_REM_APPSEC_BODY_SIZE_EXCEEDED',
+                'size' => $rawBodySize,
+                'max_size' => $maxBodySize,
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     *  This method aims to be used synchronously in the remediation process,
+     *  after a call to the getIpRemediation method.
+     *  We don't ask for cached LAPI decisions, as it is done by the getIpRemediation method.
+     *  If you want to use this method alone, you should call the getAllCachedDecisions method before.
+     *
+     * @throws CacheException
+     * @throws ClientException
+     * @throws InvalidArgumentException
+     */
+    public function getAppSecRemediation(array $headers, string $rawBody = ''): string
+    {
+        if (!$this->validateAppSecHeaders($headers)) {
+            return Constants::REMEDIATION_BYPASS;
+        }
+        if (!$this->validateRawBody($rawBody)) {
+            $action = $this->getConfig('appsec_body_size_exceeded_action') ?? Constants::APPSEC_ACTION_HEADERS_ONLY;
+            $this->logger->debug('Action to be taken if maximum size is exceeded', [
+                'type' => 'LAPI_REM_APPSEC_BODY_SIZE_EXCEEDED',
+                'action' => $action,
+            ]);
+            switch ($action) {
+                case Constants::APPSEC_ACTION_BLOCK:
+                    return Constants::REMEDIATION_BAN;
+                case Constants::APPSEC_ACTION_ALLOW:
+                    return Constants::REMEDIATION_BYPASS;
+                    // Default to headers only action
+                default:
+                    $rawBody = '';
+                    break;
+            }
+        }
+        try {
+            $rawAppSecDecision = $this->client->getAppSecDecision($headers, $rawBody);
+        } catch (TimeoutException $e) {
+            $this->logger->error('Timeout while retrieving AppSec decision', [
+                'type' => 'LAPI_REM_APPSEC_TIMEOUT',
+                'exception' => $e,
+            ]);
+
+            // Early return for AppSec fallback remediation
+            return $this->getConfig('appsec_fallback_remediation') ?? Constants::REMEDIATION_BYPASS;
+        }
+        $rawRemediation = $this->parseAppSecDecision($rawAppSecDecision);
+        if (Constants::REMEDIATION_BYPASS === $rawRemediation) {
+            $this->updateRemediationOriginCount(AbstractCache::CLEAN_APPSEC);
+
+            return Constants::REMEDIATION_BYPASS;
+        }
+        // We only set required indexes for the processCachedDecisions method
+        $fakeCachedDecisions = [[
+            AbstractCache::INDEX_MAIN => $rawRemediation,
+            AbstractCache::INDEX_ORIGIN => Constants::ORIGIN_APPSEC,
+        ]];
+
+        return $this->processCachedDecisions($fakeCachedDecisions);
     }
 
     /**
@@ -213,7 +315,7 @@ class LapiRemediation extends AbstractRemediation
         $cacheConfig = $cacheConfigItem->get();
 
         return \is_array($cacheConfig) && isset($cacheConfig[AbstractCache::WARMUP])
-                && true === $cacheConfig[AbstractCache::WARMUP];
+               && true === $cacheConfig[AbstractCache::WARMUP];
     }
 
     /**

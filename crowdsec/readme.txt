@@ -3,8 +3,8 @@ Contributors: crowdsec
 Donate link: https://crowdsec.net/
 Tags: security, captcha, ip-blocker, crowdsec, hacker-protection
 Requires at least: 4.9
-Tested up to: 6.6
-Stable tag: 2.6.7
+Tested up to: 6.7
+Stable tag: 2.7.0
 Requires PHP: 7.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
@@ -43,6 +43,10 @@ This WordPress plugin is a "bouncer", which purpose is to block detected attacks
 10. A Ban wall page customization (text and colors)
 
 == Changelog ==
+
+= 2.7 (2024-12-12) =
+
+- Add AppSec component support
 
 = 2.6 (2024-03-14) =
 
