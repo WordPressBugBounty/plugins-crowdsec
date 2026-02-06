@@ -121,27 +121,6 @@ if (is_admin()) {
         }
     }
 
-    function resetBouncerMetricsInAdminPage()
-    {
-        try {
-            $configs = getDatabaseConfigs();
-            $bouncer = new Bouncer($configs);
-            $bouncer->resetUsageMetrics();
-            AdminNotice::displaySuccess(__('CrowdSec remediation metrics have been reset successfully.'));
-        } catch (Exception $e) {
-            if(isset($bouncer) && $bouncer->getLogger()) {
-                $bouncer->getLogger()->error('', [
-                    'type' => 'WP_EXCEPTION_WHILE_RESETTING_USAGE_METRICS',
-                    'message' => $e->getMessage(),
-                    'code' => $e->getCode(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
-            AdminNotice::displayError('Technical error while resetting remediation metrics: '.$e->getMessage());
-        }
-    }
-
     function displayBouncerMetricsInAdminPage()
     {
         try {
@@ -256,71 +235,20 @@ if (is_admin()) {
                     'file'    => $e->getFile(),
                     'line'    => $e->getLine(),
                 ]);
-            }
-
-            AdminNotice::displayError('Technical error while displaying remediation metrics: ' . esc_html($e->getMessage()));
-            return '';
-        }
-    }
-
-
-    function displayResetMetricsInAdminPage()
-    {
-        try {
-            $configs = getDatabaseConfigs();
-            $bouncer = new Bouncer($configs);
-            if ($bouncer->hasBaasUri()) {
-                return '<p><input id="crowdsec_reset_usage_metrics" style="margin-right:10px" type="button" value="Reset remediation metrics now" class="button button-secondary button-small" onclick="document.getElementById(\'crowdsec_action_reset_usage_metrics\').submit();"></p>';
+                AdminNotice::displayError('Technical error while displaying remediation metrics: ' . esc_html($e->getMessage()));
             }
 
             return '';
         }
-        catch (Exception $e) {
-            if (isset($bouncer) && $bouncer->getLogger()) {
-                $bouncer->getLogger()->error('', [
-                    'type'    => 'WP_EXCEPTION_WHILE_DISPLAYING_RESET_METRICS',
-                    'message' => $e->getMessage(),
-                    'code'    => $e->getCode(),
-                    'file'    => $e->getFile(),
-                    'line'    => $e->getLine(),
-                ]);
-            }
-
-            AdminNotice::displayError('Technical error while displaying reset metrics button: ' . esc_html($e->getMessage()));
-            return '';
-        }
-
     }
 
     function displayPushMetricsInAdminPage($isPushEnabled = false)
     {
-        try {
-            $configs = getDatabaseConfigs();
-            $bouncer = new Bouncer($configs);
-            if($bouncer->hasBaasUri()) {
-                return '';
-            }
-            if( $isPushEnabled) {
-                return '<p><input id="crowdsec_push_usage_metrics" style="margin-right:10px" type="button" value="Push remediation metrics now" class="button button-secondary button-small" onclick="document.getElementById(\'crowdsec_action_push_usage_metrics\').submit();"></p>';
-            }
-            return '<p><input id="crowdsec_push_usage_metrics" style="margin-right:10px" type="button" disabled="disabled" value="Push remediation metrics now" class="button button-secondary button-small"></p>';
 
+        if( $isPushEnabled) {
+            return '<p><input id="crowdsec_push_usage_metrics" style="margin-right:10px" type="button" value="Push remediation metrics now" class="button button-secondary button-small" onclick="document.getElementById(\'crowdsec_action_push_usage_metrics\').submit();"></p>';
         }
-        catch (Exception $e) {
-            if (isset($bouncer) && $bouncer->getLogger()) {
-                $bouncer->getLogger()->error('', [
-                    'type'    => 'WP_EXCEPTION_WHILE_DISPLAYING_RESET_METRICS',
-                    'message' => $e->getMessage(),
-                    'code'    => $e->getCode(),
-                    'file'    => $e->getFile(),
-                    'line'    => $e->getLine(),
-                ]);
-            }
-
-            AdminNotice::displayError('Technical error while displaying reset metrics button: ' . esc_html($e->getMessage()));
-            return '';
-        }
-
+        return '<p><input id="crowdsec_push_usage_metrics" style="margin-right:10px" type="button" disabled="disabled" value="Push remediation metrics now" class="button button-secondary button-small"></p>';
     }
 
 
@@ -437,15 +365,6 @@ if (is_admin()) {
             die('This link expired.');
         }
         pushBouncerMetricsInAdminPage();
-        header("Location: {$_SERVER['HTTP_REFERER']}");
-        exit(0);
-    });
-    add_action('admin_post_crowdsec_reset_usage_metrics', function () {
-        if (
-            !isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'crowdsec_reset_usage_metrics')) {
-            die('This link expired.');
-        }
-        resetBouncerMetricsInAdminPage();
         header("Location: {$_SERVER['HTTP_REFERER']}");
         exit(0);
     });

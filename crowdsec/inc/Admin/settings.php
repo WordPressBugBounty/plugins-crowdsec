@@ -58,23 +58,11 @@ function adminSettings()
     /**********************************
      ** Section "Connection details" **
      *********************************/
-
-    function getIntro()
-    {
-
-        $intro ='<p>The <b>Instant WordPress Blocklist</b> is an exclusive feature available through the CrowdSec plugin. <br>
-        <p class="submit blaas-button"><a class="button button-primary crowdsec-button"  href="https://buy.stripe.com/00g3cIcu59JVfewaES"
-                             target="_blank">Subscribe now</a></p>for only $5/month, proactively block thousands of attackers\' IPs currently targeting WordPress sites.
-        </p>'
-        . '<p><i>Instructions are available in the <a target="_blank" href="https://doc.crowdsec.net/u/bouncers/wordpress#instant-wordpress-blocklist">public documentation</a></i></p>'
-        ;
-
-        return $intro;
-    }
+    
 
     add_settings_section('crowdsec_admin_connection', 'Connection details', function () {
         echo 'Connect WordPress to your CrowdSec Local API.';
-    }, 'crowdsec_settings', ['after_section' => '<hr>', 'before_section' => getIntro()]);
+    }, 'crowdsec_settings', ['after_section' => '<hr>']);
 
     // Field "crowdsec_api_url"
     addFieldString('crowdsec_api_url', 'Local API URL', 'crowdsec_plugin_settings', 'crowdsec_settings', 'crowdsec_admin_connection', function ($input, $default ='') {
@@ -89,7 +77,6 @@ function adminSettings()
             $message .= '<br><b>Please note the following: </b><ul>';
             $message .= '<li>- The Authentication type must be "Bouncer API key".</li>';
             $message .= '<li>- Stream mode must be enabled (see Communication mode with the Local API in Advanced Settings).</li>';
-            $message .= '<li>- Usage Metrics cannot be sent (see Usage Metrics in Advanced Settings).</li>';
             $message .= '<li>- AppSec component cannot be used (see Appsec Component in Advanced Settings).</li>';
             $message .= '</ul>';
             AdminNotice::displayWarning($message);

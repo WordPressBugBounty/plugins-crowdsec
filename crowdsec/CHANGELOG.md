@@ -6,6 +6,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.1](https://github.com/crowdsecurity/cs-wordpress-bouncer/releases/tag/v2.13.1) - 2026-01-09
+[_Compare with previous release_](https://github.com/crowdsecurity/cs-wordpress-bouncer/compare/v2.13.0...v2.13.1)
+
+### Fixed
+
+- Do not display configuration errors during activation as it is normal for configurations not to be defined yet
+
+
+---
+
+
+## [2.13.0](https://github.com/crowdsecurity/cs-wordpress-bouncer/releases/tag/v2.13.0) - 2025-12-12
+[_Compare with previous release_](https://github.com/crowdsecurity/cs-wordpress-bouncer/compare/v2.12.0...v2.13.0)
+
+### Changed
+
+- Allow sending remediation metrics even with BLaaS LAPI
+
+### Removed
+
+- Remove "Reset remediation metrics" feature previously added for BLaaS LAPI
+
+
+---
+
+
+## [2.12.0](https://github.com/crowdsecurity/cs-wordpress-bouncer/releases/tag/v2.12.0) - 2025-12-05
+[_Compare with previous release_](https://github.com/crowdsecurity/cs-wordpress-bouncer/compare/v2.11.1...v2.12.0)
+
+### Added
+
+- Add compatibility with WordPress 6.9
+
+### Removed
+
+- Remove Blocklist as a Service (BLaaS) subscription button
+
+
+---
+
 ## [2.11.1](https://github.com/crowdsecurity/cs-wordpress-bouncer/releases/tag/v2.11.1) - 2025-06-13
 [_Compare with previous release_](https://github.com/crowdsecurity/cs-wordpress-bouncer/compare/v2.11.0...v2.11.1)
 
